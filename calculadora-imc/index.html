@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Calculadora IMC</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/bootstrap@4.3.1/dist/css/bootstrap.css">
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.8.1/css/all.css" integrity="sha384-50oBUHEmvpQ+1lW4y57PTFmhCaXp0ML5d60M1M7uH2+nqUivzIebhndOJK28anvf" crossorigin="anonymous">
+
+  <style>
+    .principal {
+      width: 100%;
+      max-width: 900px;
+      margin: 20px auto;
+      padding: 20px;
+    }
+
+    .form-calc-imc__actions {
+      display: flex;
+      flex-direction: row;
+      justify-content: flex-end;
+    }
+
+    .alert {
+      margin-bottom: 0;
+    }
+
+    .resultado__response {
+      margin-top: 20px;
+    }
+
+    .result-imc {
+      width: min-content;
+      font-weight: bold;
+      padding: 10px;
+      margin: 5px auto;
+    }
+  </style>
+</head>
+
+<body class="bg-light">
+
+<nav class="navbar navbar-dark bg-dark">
+  <span class="navbar-brand">Calculadora IMC</span>
+</nav>
+
+<main class="principal shadow rounded bg-white">
+  <form class="form-calc-imc">
+    <div class="form-group">
+      <label for="altura-input">Altura:</label>
+
+      <div class="input-group">
+        <input class="form-control" id="altura-input" type="number" min="0" step="0.01" placeholder="Sua altura">
+
+        <div class="input-group-append">
+          <div class="input-group-text">m</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="peso-input">Peso:</label>
+
+      <div class="input-group">
+        <input class="form-control" id="peso-input" type="number" min="0" step="0.01" placeholder="Seu peso">
+
+        <div class="input-group-append">
+          <div class="input-group-text">kg</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-calc-imc__actions">
+      <button type="submit" class="calc-imc-actions__submit-btn btn btn-primary">Calcular</button>
+    </div>
+  </form>
+
+  <div class="resultado"></div>
+</main>
+
+<script src="https://unpkg.com/rxjs@6.5.1/bundles/rxjs.umd.js"></script>
+<script>
+    (() => {
+        'use strict';
+        const Rx = rxjs;
+        const { fromEvent, combineLatest } = Rx;
+        const { map, debounceTime, switchMap, startWith, withLatestFrom } = Rx.operators;
+
+        const numberInputEventOperators = [
+            map(event => event.target.value),
+            map(val => Number(val)),
+            debounceTime(300),
+            startWith(0),
+        ];
+
+        const getCategoriaIMC = (imc) => {
+            if (imc <= 18.5) {
+                return 'Abaixo do peso';
+            }
+
+            if (imc <= 24.9) {
+                return 'Peso normal';
+            }
+
+            if (imc <= 29.9) {
+                return 'Sobrepeso';
+            }
+
+            if (imc <= 34.9) {
+                return 'Obesidade grau 1';
+            }
+
+            if (imc <= 39.9) {
+                return 'Obesidade grau 2';
+            }
+
+            return 'Obesidade grau 3';
+        };
+
+        const formatNum = num => num.toLocaleString('pt-BR', { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+
+        const clearEl = ($el) => {
+            $el.innerHTML = '';
+        };
+
+        const renderizarValoresInvalidos = ($el) => {
+            $el.innerHTML = `
+              <p class="resultado__response alert alert-danger">
+                Valores inválidos para peso e/ou altura.
+                Por favor verifique se os dados estão corretos e tente novamente
+              </p>
+            `;
+        };
+
+        const renderizarResultado = ($el, imc) => {
+            $el.innerHTML = `
+              <div class="resultado__response text-center">
+                O seu IMC é
+                <div class="result-imc rounded border border-secondary">${formatNum(Number(imc))}</div>
+                Você está na categoria: ${getCategoriaIMC(imc)}
+              </p>
+            `;
+        };
+
+
+        const alturaValue$ = fromEvent(document.querySelector('#altura-input'), 'input').pipe(...numberInputEventOperators);
+        const pesoValue$ = fromEvent(document.querySelector('#peso-input'), 'input').pipe(...numberInputEventOperators);
+        const formSubmition$ = fromEvent(document.querySelector('.form-calc-imc'), 'submit');
+
+        const imcValue$ = combineLatest(alturaValue$, pesoValue$).pipe(
+            map(
+                ([altura, peso]) => (altura === 0 || altura === undefined || peso === undefined)
+                    ? undefined
+                    : peso / (altura ** 2),
+            ),
+            map(val => isNaN(val) ? undefined : val),
+        );
+
+        formSubmition$.subscribe(event => event.preventDefault());
+
+        formSubmition$.pipe(
+            withLatestFrom(imcValue$),
+        ).subscribe(([, imc]) => {
+            const $resultado = document.querySelector('.resultado');
+
+            clearEl($resultado);
+
+            if (imc === undefined) {
+                renderizarValoresInvalidos($resultado);
+            } else {
+                renderizarResultado($resultado, imc);
+            }
+        });
+    })();
+</script>
+</body>
+</html>
